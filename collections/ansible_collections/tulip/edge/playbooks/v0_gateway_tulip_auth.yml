@@ -1,0 +1,114 @@
+---
+# Tulip Edge Gateway Authentication Playbook
+# Authenticates the gateway with a Tulip factory instance
+# 
+# Authentication parameters are read from inventory file:
+# - tulip_factory_url: Factory instance URL (e.g., 'acme.mfg.tulip.co')
+# - tulip_admin_email: Tulip admin user email
+# - tulip_admin_password_sha256: SHA256 hash of admin password
+# - tulip_client_info: Optional custom client info JSON
+#
+# Usage: ansible-playbook gateway_tulip_auth.yml --limit device_name
+
+- name: Gateway Authentication on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Validate required gateway auth parameters from inventory
+      assert:
+        that:
+          - tulip_factory_url is defined
+          - tulip_factory_url | length > 0
+          - tulip_admin_email is defined
+          - tulip_admin_email | length > 0
+          - tulip_admin_password_sha256 is defined
+          - tulip_admin_password_sha256 | length > 0
+        fail_msg: |
+          Required parameters missing from inventory file:
+          
+          Please add the following to your inventory file under [tulip_edge_devices:vars]:
+          tulip_factory_url=your-factory.mfg.tulip.co
+          tulip_admin_email=admin@yourcompany.com
+          tulip_admin_password_sha256=sha256_hash_of_password
+          
+          To generate SHA256 hash: echo -n 'your_password' | sha256sum
+          
+          You can also override these per group or per device as needed.
+    
+    - name: Display operation details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Action: Gateway Authentication
+          Host: {{ ansible_host | default(inventory_hostname) }}:{{ tulip_edge_port }}
+          Factory URL: {{ tulip_factory_url }}
+          Admin Email: {{ tulip_admin_email }}
+
+    - name: Prepare gateway authentication parameters
+      set_fact:
+        gateway_auth_params:
+          url: "{{ tulip_factory_url }}"
+          email: "{{ tulip_admin_email }}"
+          passwordSha256: "{{ tulip_admin_password_sha256 }}"
+          # client parameter is optional - if not provided, gateway will auto-generate
+
+    - name: Add client info if provided
+      set_fact:
+        gateway_auth_params: "{{ gateway_auth_params | combine({'client': tulip_client_info}) }}"
+      when: 
+        - tulip_client_info is defined
+        - tulip_client_info | length > 0
+
+    - name: Execute gateway_tulip_auth
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: gateway_tulip_auth
+        token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
+        parameters: "{{ gateway_auth_params }}"
+      register: operation_result
+      delegate_to: localhost
+      
+    - name: Display gateway authentication results
+      debug:
+        msg: |
+          Gateway Authentication Results for {{ inventory_hostname }}:
+          Status: {{ operation_result.result.message | default('Success') }}
+          
+          {% if operation_result.result.data is defined %}
+          Gateway Details:
+          - Type: {{ operation_result.result.data.type | default('N/A') }}
+          - Name: {{ operation_result.result.data.name | default('N/A') }}
+          - ID: {{ operation_result.result.data.id | default('N/A') }}
+          - Hostname: {{ operation_result.result.data.hostname | default('N/A') }}
+          - API Key ID: {{ operation_result.result.data.apiKeyId | default('N/A') }}
+          - Replaced Existing: {{ operation_result.result.data.didReplaceExisting | default('N/A') }}
+          {% endif %}
+      when: operation_result is defined and operation_result.result is defined
+
+    - name: Display full API response
+      debug:
+        msg: |
+          Full API Response: {{ operation_result.result | to_nice_json }}
+      when: operation_result is defined and operation_result.result is defined
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info
+      when: operation_result is defined and operation_result.debug_info is defined

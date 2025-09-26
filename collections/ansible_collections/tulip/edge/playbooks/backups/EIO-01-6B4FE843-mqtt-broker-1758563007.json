@@ -1,0 +1,23 @@
+{
+  "device": "EIO-01-6B4FE843",
+  "component": "mqtt-broker",
+  "timestamp": "2025-09-22T17:43:27Z",
+  "backup_name": "EIO-01-6B4FE843-mqtt-broker-1758563007",
+  "config": {
+    "data": {
+        "data": {
+            "data": {
+                "enabled": true,
+                "password": "8Ogynd4C91/H94Os5rntoUAmsG4c/X7jJnuUngKhdgY+MDw1JmZj5yD5GTJEwtWKHCjyyFaP9Op44ph2VrPYfQ==",
+                "username": "testeryo"
+            },
+            "enabled": true,
+            "password": "sZkl+Zc3ib7OCMg1T0M3JHxARcGwQraErWjOps0qR34bRgsG+PYWo7KVwt98MLZIybFVjX+CJJdUnkcgg4WPpw==",
+            "username": "testeryyyy"
+        },
+        "enabled": true,
+        "password": "zA7klE9HOBmu057stWgUKWFpar0X1Hdb4A3Sv8A3R8JqQ/OzQTzzcvwyaahTDV/ZVJBc+vd5QkXOL1uigITf7A==",
+        "username": "testeraaaaxxxxxx"
+    }
+}
+}

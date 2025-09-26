@@ -1,0 +1,95 @@
+---
+- name: Check and refresh login tokens
+  hosts: tulip_edge_devices
+  gather_facts: false
+  vars:
+    tulip_username: "{{ tulip_edge_username | default('tulip') }}"
+    tulip_password: "{{ tulip_edge_password }}"
+    auto_refresh: "{{ tulip_edge_auto_refresh_tokens | default(true) }}"
+    
+  tasks:
+    - name: Check if token exists
+      debug:
+        msg: "Checking token for {{ inventory_hostname }}"
+      when: tulip_auth_token is defined
+
+    - name: Check if token is still valid
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port | default(80) }}"
+        use_https: "{{ tulip_edge_use_https | default(false) }}"
+        action: check_login
+        token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
+      register: check_result
+      ignore_errors: true
+      when: tulip_auth_token is defined
+
+    - name: Set token status facts
+      set_fact:
+        has_token: "{{ tulip_auth_token is defined }}"
+        token_valid: "{{ tulip_auth_token is defined and not check_result.failed }}"
+        needs_refresh: "{{ tulip_auth_token is not defined or check_result.failed }}"
+
+    - name: Display current token status
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Has Token: {{ has_token }}
+          Token Valid: {{ token_valid }}
+          Needs Refresh: {{ needs_refresh }}
+          {% if tulip_auth_token is defined and check_result.failed %}Error: {{ check_result.msg }}{% endif %}
+
+    - name: Refresh token if needed and auto_refresh is enabled
+      block:
+        - name: Login to get new token
+          tulip.edge.tulip_edge_api:
+            host: "{{ ansible_host | default(inventory_hostname) }}"
+            port: "{{ tulip_edge_port | default(80) }}"
+            use_https: "{{ tulip_edge_use_https | default(false) }}"
+            action: login
+            username: "{{ tulip_username }}"
+            password: "{{ tulip_password }}"
+            device_name: "{{ inventory_hostname }}"
+          register: login_result
+
+        - name: Update token fact
+          set_fact:
+            tulip_auth_token: "{{ login_result.token }}"
+            cacheable: true
+
+        - name: Verify new token works
+          tulip.edge.tulip_edge_api:
+            host: "{{ ansible_host | default(inventory_hostname) }}"
+            port: "{{ tulip_edge_port | default(80) }}"
+            use_https: "{{ tulip_edge_use_https | default(false) }}"
+            action: check_login
+            token: "{{ login_result.token }}"
+            device_name: "{{ inventory_hostname }}"
+          register: verify_result
+
+        - name: Display refresh results
+          debug:
+            msg: |
+              Device: {{ inventory_hostname }}
+              Token Refresh: SUCCESS
+              New Token: {{ login_result.token[:20] }}...
+              Verification: {% if verify_result.failed %}FAILED{% else %}SUCCESS{% endif %}
+
+      when: needs_refresh and auto_refresh
+
+    - name: Display manual refresh instructions
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Token Status: INVALID or MISSING
+          Auto-refresh is disabled. To refresh manually:
+          ansible-playbook -i inventory/production.yml collections/ansible_collections/tulip/edge/playbooks/login.yml -l {{ inventory_hostname }}
+      when: needs_refresh and not auto_refresh
+
+    - name: Final status summary
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Final Status: {% if token_valid or (needs_refresh and auto_refresh and not login_result.failed) %}READY{% else %}NEEDS ATTENTION{% endif %}
+          Action Required: {% if needs_refresh and not auto_refresh %}Manual token refresh{% else %}None{% endif %}

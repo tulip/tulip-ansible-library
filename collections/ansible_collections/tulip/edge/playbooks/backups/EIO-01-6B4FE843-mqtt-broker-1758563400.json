@@ -1,0 +1,13 @@
+{
+  "device": "EIO-01-6B4FE843",
+  "component": "mqtt-broker",
+  "timestamp": "2025-09-22T17:50:00Z",
+  "backup_name": "EIO-01-6B4FE843-mqtt-broker-1758563400",
+  "config": {
+    "data": {
+        "enabled": true,
+        "password": "zA7klE9HOBmu057stWgUKWFpar0X1Hdb4A3Sv8A3R8JqQ/OzQTzzcvwyaahTDV/ZVJBc+vd5QkXOL1uigITf7A==",
+        "username": "testeraaaaxxxxxq"
+    }
+}
+}

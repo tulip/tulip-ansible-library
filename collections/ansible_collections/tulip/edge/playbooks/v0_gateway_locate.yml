@@ -1,0 +1,51 @@
+---
+# Tulip Edge Locate Gateway Playbook
+# Triggers the locate function (LED flash)
+
+- name: Locate Gateway on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Display operation details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Action: Locate Gateway
+          Host: {{ ansible_host | default(inventory_hostname) }}:{{ tulip_edge_port }}
+
+    - name: Execute gateway_locate
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: gateway_locate
+        token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
+        parameters: {}
+      register: operation_result
+      delegate_to: localhost
+      
+    - name: Display locate gateway information
+      debug:
+        msg: |
+          Locate Gateway Results for {{ inventory_hostname }}:
+          Status: {{ operation_result.result.message | default('Success') }}
+          API Response: {{ operation_result.result | to_nice_json }}
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info

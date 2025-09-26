@@ -1,0 +1,44 @@
+---
+# Tulip Edge Node-RED Restore Playbook
+# Restores Node-RED configuration from backup
+
+- name: Restore Node-RED on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Validate backup name
+      assert:
+        that:
+          - nodered_backup_name is defined
+          - nodered_backup_name | length > 0
+        fail_msg: "nodered_backup_name must be specified for restore operation"
+    
+    - name: Restore Node-RED configuration
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: restore_nodered
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          backup_name: "{{ nodered_backup_name }}"
+          restart_service: "{{ nodered_restart_after_restore | default(true) }}"
+      register: restore_result
+      
+    - name: Display restore result
+      debug:
+        msg: "Node-RED restore on {{ inventory_hostname }} completed from: {{ nodered_backup_name }}"

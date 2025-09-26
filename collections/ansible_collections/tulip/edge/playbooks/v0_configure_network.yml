@@ -1,0 +1,42 @@
+---
+# Tulip Edge Network Configuration Playbook
+# Configures network settings on devices
+
+- name: Configure Network on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Validate network configuration
+      assert:
+        that:
+          - network_config is defined
+          - network_config is mapping
+        fail_msg: "network_config must be defined as a dictionary"
+    
+    - name: Configure network settings
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: configure_network
+        token: "{{ tulip_auth_token }}"
+        parameters: "{{ network_config }}"
+      register: network_result
+      
+    - name: Display network configuration result
+      debug:
+        msg: "Network configuration on {{ inventory_hostname }} completed"

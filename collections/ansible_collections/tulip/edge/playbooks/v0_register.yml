@@ -1,0 +1,35 @@
+---
+# Tulip Edge Device Registration Playbook
+# Registers devices with the provided password
+
+- name: Register Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - device_password is defined
+          - device_password | length > 0
+        fail_msg: "device_password must be defined and not empty"
+    
+    - name: Register device
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: register
+        password: "{{ device_password }}"
+        device_name: "{{ inventory_hostname }}"
+      register: register_result
+      
+    - name: Display registration result
+      debug:
+        msg: "Device {{ inventory_hostname }} registration: {{ register_result.result.status | default('completed') }}"

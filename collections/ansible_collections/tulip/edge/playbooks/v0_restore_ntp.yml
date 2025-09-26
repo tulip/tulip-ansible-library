@@ -1,0 +1,69 @@
+---
+- name: Restore NTP configuration to Tulip Edge device
+  hosts: all
+  gather_facts: false
+  vars:
+    ntp_backup_dir: "{{ tulip_backup_dir | default('./backups') }}"
+  
+  tasks:
+    - name: Find backup file
+      delegate_to: localhost
+      block:
+        - name: Find latest NTP backup file (if no specific backup name provided)
+          when: ntp_backup_name is not defined or ntp_backup_name == ""
+          find:
+            paths: "{{ ntp_backup_dir }}"
+            patterns: "{{ inventory_hostname }}-ntp-*.json"
+          register: backup_files
+
+        - name: Set backup filename to latest file
+          when: ntp_backup_name is not defined or ntp_backup_name == ""
+          set_fact:
+            backup_file_path: "{{ (backup_files.files | sort(attribute='mtime') | last).path }}"
+            backup_filename: "{{ (backup_files.files | sort(attribute='mtime') | last).path | basename }}"
+
+        - name: Set backup filename to specified backup
+          when: ntp_backup_name is defined and ntp_backup_name != ""
+          set_fact:
+            backup_file_path: "{{ ntp_backup_dir }}/{{ ntp_backup_name }}"
+            backup_filename: "{{ ntp_backup_name }}"
+
+        - name: Verify backup file exists
+          stat:
+            path: "{{ backup_file_path }}"
+          register: backup_file_stat
+          failed_when: not backup_file_stat.stat.exists
+
+        - name: Load NTP configuration from backup file
+          slurp:
+            src: "{{ backup_file_path }}"
+          register: config_content
+
+    - name: Parse configuration from backup file
+      set_fact:
+        ntp_config: "{{ config_content.content | b64decode | from_json }}"
+
+    - name: Login to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: login
+        password: "{{ device_password }}"
+      register: login_result
+
+    - name: Restore NTP configuration to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: restore_ntp
+        token: "{{ login_result.token }}"
+        parameters:
+          config_data: "{{ ntp_config }}"
+      register: restore_result
+
+    - name: Display restore results
+      debug:
+        msg: 
+          - "NTP restore completed successfully"
+          - "Device: {{ inventory_hostname }}"
+          - "Backup file: {{ backup_filename }}"
+          - "Config size: {{ restore_result.result.config_size | default('unknown') }} bytes"
+          - "API success: {{ restore_result.result.api_response is defined }}"

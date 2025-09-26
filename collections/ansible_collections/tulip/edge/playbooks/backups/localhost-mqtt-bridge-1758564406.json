@@ -1,0 +1,11 @@
+{
+  "device": "localhost",
+  "component": "mqtt-bridge",
+  "timestamp": "2025-09-22T18:06:46Z",
+  "backup_name": "localhost-mqtt-bridge-1758564406",
+  "config": {
+    "error": "Could not retrieve devconn endpoints from device",
+    "note": "API call failed, placeholder backup created",
+    "timestamp": "2025-09-22T14:06:46.599336"
+}
+}

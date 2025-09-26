@@ -1,0 +1,41 @@
+{
+  "device": "EIO-01-6B4FE843",
+  "component": "mqtt-bridge",
+  "timestamp": "2025-09-22T18:11:40Z",
+  "backup_name": "EIO-01-6B4FE843-mqtt-bridge-1758564700",
+  "config": {
+    "data": {
+        "configs": [
+            {
+                "id": null,
+                "local": {
+                    "protocol": "mqtt",
+                    "topics": [
+                        "requests/#",
+                        "replies/#",
+                        "events/#",
+                        "alarms/#",
+                        "data/#"
+                    ],
+                    "uri": "tcp://localhost:2883"
+                },
+                "mqtt": {
+                    "auth_type": "none",
+                    "client_id": "tulip-FOOB",
+                    "name": "Testingy",
+                    "topics": [
+                        "requests/#",
+                        "replies/#",
+                        "events/#",
+                        "alarms/#",
+                        "data/#"
+                    ],
+                    "uri": "tcp://10.128.1.112:2883",
+                    "use_tulip_prefix": true,
+                    "version": "v5"
+                }
+            }
+        ]
+    }
+}
+}

@@ -1,0 +1,8 @@
+---
+collections:
+  - name: tulip.edge
+    version: ">=1.0.0"
+  - name: tulip.player
+    version: ">=1.0.0"
+  - name: tulip.connectorhost
+    version: ">=1.0.0"

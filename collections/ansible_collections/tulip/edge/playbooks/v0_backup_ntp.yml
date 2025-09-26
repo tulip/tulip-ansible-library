@@ -1,0 +1,52 @@
+---
+- name: Backup NTP configuration from Tulip Edge device
+  hosts: all
+  gather_facts: false
+  vars:
+    ntp_backup_dir: "{{ tulip_backup_dir | default('./backups') }}"
+  
+  tasks:
+    - name: Ensure backup directory exists
+      delegate_to: localhost
+      file:
+        path: "{{ ntp_backup_dir }}"
+        state: directory
+        mode: '0755'
+      run_once: true
+
+    - name: Login to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: login
+        password: "{{ device_password }}"
+      register: login_result
+
+    - name: Get NTP configuration from device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: backup_ntp
+        token: "{{ login_result.token }}"
+      register: backup_result
+
+    - name: Generate backup filename with timestamp
+      set_fact:
+        backup_filename: "{{ inventory_hostname }}-ntp-{{ ansible_date_time.strftime('%Y%m%d-%H%M%S') }}.json"
+      delegate_to: localhost
+
+    - name: Save NTP configuration to local backup file
+      delegate_to: localhost
+      copy:
+        content: "{{ backup_result.result.config_data | to_nice_json }}"
+        dest: "{{ ntp_backup_dir }}/{{ backup_filename }}"
+        mode: '0644'
+      register: file_result
+
+    - name: Display backup results
+      debug:
+        msg: 
+          - "NTP backup completed successfully"
+          - "Device: {{ inventory_hostname }}"
+          - "Backup file: {{ ntp_backup_dir }}/{{ backup_filename }}"
+          - "Config size: {{ backup_result.result.config_size | default('unknown') }} bytes"
+          - "File size: {{ file_result.size | default('unknown') }} bytes"
+          - "API success: {{ backup_result.result.api_success | default('unknown') }}"

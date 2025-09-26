@@ -1,0 +1,42 @@
+---
+# Tulip Edge Device Login Playbook
+# Logs into devices and stores authentication tokens for subsequent operations
+
+- name: Login to Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+    tulip_username: "{{ edge_username | default('tulip') }}"
+  
+  tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - device_password is defined
+          - device_password | length > 0
+        fail_msg: "device_password must be defined and not empty"
+    
+    - name: Login to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: login
+        username: "{{ tulip_username }}"
+        password: "{{ device_password }}"
+        device_name: "{{ inventory_hostname }}"
+      register: login_result
+      
+    - name: Store authentication token
+      set_fact:
+        tulip_auth_token: "{{ login_result.token }}"
+        cacheable: true
+        
+    - name: Display login result
+      debug:
+        msg: "Device {{ inventory_hostname }} login successful, token cached"

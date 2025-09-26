@@ -1,0 +1,87 @@
+---
+# Tulip Edge Backup Nodered Playbook
+# Backs up nodered configuration
+
+- name: Backup Nodered on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: true  # Need this for ansible_date_time
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Generate backup name
+      set_fact:
+        generated_backup_name: "{{ inventory_hostname }}-nodered-{{ ansible_date_time.epoch }}"
+      when: nodered_backup_name is not defined
+    
+    - name: Use provided or generated backup name
+      set_fact:
+        final_backup_name: "{{ nodered_backup_name | default(generated_backup_name) }}"
+    
+    - name: Display backup details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Backup name: {{ final_backup_name }}
+          Backup type: Nodered Configuration
+
+    - name: Execute backup_nodered
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: backup_nodered
+        token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
+        parameters: {}
+      register: operation_result
+      delegate_to: localhost
+
+    - name: Debug operation result structure
+      debug:
+        var: operation_result
+      
+    - name: Create local backup directory
+      file:
+        path: "{{ nodered_backup_dir | default('./backups') }}"
+        state: directory
+      delegate_to: localhost
+      
+    - name: Write backup file locally
+      copy:
+        content: |
+          {
+            "device": "{{ inventory_hostname }}",
+            "component": "nodered",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "backup_name": "{{ final_backup_name }}",
+            "config": {{ operation_result.result.config_data | to_nice_json }}
+          }
+        dest: "{{ nodered_backup_dir | default('./backups') }}/{{ final_backup_name }}.json"
+      delegate_to: localhost
+      register: backup_file_result
+      
+    - name: Display operation result
+      debug:
+        msg: |
+          Nodered backup completed successfully
+          Device: {{ inventory_hostname }}
+          Local backup file: {{ nodered_backup_dir | default('./backups') }}/{{ final_backup_name }}.json
+          Config size: {{ operation_result.result.config_size }} bytes
+          Status: {{ operation_result.result.message }}
+          API success: {{ operation_result.result.api_success }}
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info

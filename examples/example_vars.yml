@@ -1,0 +1,64 @@
+---
+# Example configuration files and variable examples
+
+# Example 1: Network Configuration
+network_config:
+  interface: eth0
+  method: static
+  ip_address: 192.168.1.100
+  netmask: 255.255.255.0
+  gateway: 192.168.1.1
+  dns_servers:
+    - 8.8.8.8
+    - 8.8.4.4
+  mtu: 1500
+
+# Example 2: HTTPS Configuration  
+https_config:
+  enabled: true
+  port: 443
+  certificate_file: "/etc/ssl/certs/server.crt"
+  private_key_file: "/etc/ssl/private/server.key"
+  redirect_http: true
+
+# Example 3: HTTP Proxy Configuration
+proxy_config:
+  enabled: true
+  proxy_host: proxy.company.com
+  proxy_port: 8080
+  username: proxy_user
+  password: "{{ vault_proxy_password }}"
+  bypass_domains:
+    - localhost
+    - "*.local"
+    - "192.168.*"
+
+# Example 4: NTP Configuration
+ntp_config:
+  enabled: true
+  servers:
+    - 0.pool.ntp.org
+    - 1.pool.ntp.org
+    - 2.pool.ntp.org
+  timezone: "America/New_York"
+  sync_interval: 3600
+
+# Example variables for different operations
+# Use these in your playbook runs:
+
+# For backups
+nodered_backup_name: "production-backup-2024-01-15"
+mqtt_backup_name: "mqtt-config-backup"
+drivers_backup_name: "drivers-v1.2.3"
+
+# For service toggles (true/false)
+nodered_state: true
+mqtt_broker_enabled: false
+https_enabled: true
+http_proxy_enabled: false
+
+# For password changes
+new_password: "{{ vault_new_edge_password }}"
+
+# For factory reset (requires explicit confirmation)
+confirm_reset: true  # DANGER: Only set to true when you really want to reset!

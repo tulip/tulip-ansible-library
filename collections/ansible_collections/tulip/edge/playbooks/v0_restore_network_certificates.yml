@@ -1,0 +1,69 @@
+---
+- name: Restore network certificates configuration to Tulip Edge device
+  hosts: all
+  gather_facts: false
+  vars:
+    network_certificates_backup_dir: "{{ tulip_backup_dir | default('./backups') }}"
+  
+  tasks:
+    - name: Find backup file
+      delegate_to: localhost
+      block:
+        - name: Find latest network certificates backup file (if no specific backup name provided)
+          when: network_certificates_backup_name is not defined or network_certificates_backup_name == ""
+          find:
+            paths: "{{ network_certificates_backup_dir }}"
+            patterns: "{{ inventory_hostname }}-network-certificates-*.json"
+          register: backup_files
+
+        - name: Set backup filename to latest file
+          when: network_certificates_backup_name is not defined or network_certificates_backup_name == ""
+          set_fact:
+            backup_file_path: "{{ (backup_files.files | sort(attribute='mtime') | last).path }}"
+            backup_filename: "{{ (backup_files.files | sort(attribute='mtime') | last).path | basename }}"
+
+        - name: Set backup filename to specified backup
+          when: network_certificates_backup_name is defined and network_certificates_backup_name != ""
+          set_fact:
+            backup_file_path: "{{ network_certificates_backup_dir }}/{{ network_certificates_backup_name }}"
+            backup_filename: "{{ network_certificates_backup_name }}"
+
+        - name: Verify backup file exists
+          stat:
+            path: "{{ backup_file_path }}"
+          register: backup_file_stat
+          failed_when: not backup_file_stat.stat.exists
+
+        - name: Load network certificates configuration from backup file
+          slurp:
+            src: "{{ backup_file_path }}"
+          register: config_content
+
+    - name: Parse configuration from backup file
+      set_fact:
+        network_certificates_config: "{{ config_content.content | b64decode | from_json }}"
+
+    - name: Login to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: login
+        password: "{{ device_password }}"
+      register: login_result
+
+    - name: Restore network certificates configuration to device
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: restore_network_certificates
+        token: "{{ login_result.token }}"
+        parameters:
+          config_data: "{{ network_certificates_config }}"
+      register: restore_result
+
+    - name: Display restore results
+      debug:
+        msg: 
+          - "Network certificates restore completed successfully"
+          - "Device: {{ inventory_hostname }}"
+          - "Backup file: {{ backup_filename }}"
+          - "Config size: {{ restore_result.result.config_size | default('unknown') }} bytes"
+          - "API success: {{ restore_result.result.api_response is defined }}"

@@ -1,0 +1,60 @@
+---
+# Master Fleet Management Playbook for Tulip Edge Devices
+# This playbook demonstrates how to orchestrate operations across a fleet
+
+- name: Fleet Management - Login Phase
+  import_playbook: ../collections/ansible_collections/tulip/edge/playbooks/login.yml
+
+- name: Fleet Management - Node-RED Operations
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free
+  vars:
+    operation: "{{ fleet_operation | default('status') }}"
+  
+  tasks:
+    - name: Execute Node-RED operations
+      block:
+        - name: Backup Node-RED before operations
+          include_tasks: ../collections/ansible_collections/tulip/edge/playbooks/backup_nodered.yml
+          when: operation in ['upgrade', 'restore']
+          vars:
+            nodered_backup_name: "pre-{{ operation }}-{{ ansible_date_time.epoch }}"
+        
+        - name: Upgrade Node-RED
+          include_tasks: ../collections/ansible_collections/tulip/edge/playbooks/upgrade_nodered.yml
+          when: operation == 'upgrade'
+        
+        - name: Restore Node-RED
+          include_tasks: ../collections/ansible_collections/tulip/edge/playbooks/restore_nodered.yml
+          when: operation == 'restore'
+          
+      rescue:
+        - name: Handle operation failure
+          debug:
+            msg: "Operation {{ operation }} failed on {{ inventory_hostname }}, check logs"
+          
+        - name: Rollback on failure (if upgrade failed)
+          include_tasks: ../collections/ansible_collections/tulip/edge/playbooks/rollback_nodered.yml
+          when: operation == 'upgrade'
+
+- name: Fleet Management - Parallel Operations Demo
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # This enables true parallel execution
+  serial: "{{ max_parallel | default('100%') }}"  # Control parallelism
+  
+  tasks:
+    - name: Demonstrate parallel backup operations
+      tulip.edge.tulip_edge_api:
+        host: "{{ inventory_hostname }}"
+        action: backup_nodered
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          backup_name: "fleet-backup-{{ ansible_date_time.epoch }}"
+      register: backup_result
+      tags: backup
+      
+    - name: Show completion status
+      debug:
+        msg: "Device {{ inventory_hostname }} completed in {{ ansible_play_batch | length }} device batch"

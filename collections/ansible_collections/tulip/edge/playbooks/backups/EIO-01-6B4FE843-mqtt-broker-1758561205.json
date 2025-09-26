@@ -1,0 +1,14 @@
+{
+  "device": "EIO-01-6B4FE843",
+  "component": "mqtt-broker",
+  "timestamp": "2025-09-22T13:13:25.236631",
+  "backup_name": "EIO-01-6B4FE843-mqtt-broker-1758561205.json",
+  "backup_directory": "/home/gmorell/Develop/tulip-ansible/collections/ansible_collections/tulip/edge/playbooks/backups",
+  "config": {
+    "data": {
+      "enabled": true,
+      "password": "8Ogynd4C91/H94Os5rntoUAmsG4c/X7jJnuUngKhdgY+MDw1JmZj5yD5GTJEwtWKHCjyyFaP9Op44ph2VrPYfQ==",
+      "username": "tester"
+    }
+  }
+}

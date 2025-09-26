@@ -1,0 +1,52 @@
+{
+  "device": "EIO-01-6B4FE843",
+  "component": "lightkit",
+  "timestamp": "2025-09-22T20:50:55Z",
+  "backup_name": "EIO-01-6B4FE843-lightkit-1758574255",
+  "config": {
+    "bins": [
+        {
+            "color": 43520,
+            "id": 0,
+            "row": 0,
+            "start": 5,
+            "width": 10
+        },
+        {
+            "color": 170,
+            "id": 1,
+            "row": 0,
+            "start": 25,
+            "width": 10
+        },
+        {
+            "color": 43520,
+            "id": 2,
+            "row": 0,
+            "start": 45,
+            "width": 8
+        },
+        {
+            "color": 170,
+            "id": 3,
+            "row": 1,
+            "start": 5,
+            "width": 10
+        },
+        {
+            "color": 43520,
+            "id": 4,
+            "row": 1,
+            "start": 25,
+            "width": 10
+        },
+        {
+            "color": 170,
+            "id": 5,
+            "row": 1,
+            "start": 45,
+            "width": 10
+        }
+    ]
+}
+}

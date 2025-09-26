@@ -1,0 +1,52 @@
+---
+# Tulip Edge Disable MQTT Broker Playbook
+# Disables MQTT broker service
+
+- name: Disable MQTT Broker on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Display operation details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Action: Disable MQTT Broker
+          Host: {{ ansible_host | default(inventory_hostname) }}:{{ tulip_edge_port }}
+
+    - name: Execute disable_mqtt_broker
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: disable_mqtt_broker
+        token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
+        parameters: {}
+      register: operation_result
+      delegate_to: localhost
+      
+    - name: Display operation result
+      debug:
+        msg: |
+          MQTT Broker disable completed successfully
+          Device: {{ inventory_hostname }}
+          Status: {{ operation_result.result.message | default('Success') }}
+          API success: {{ operation_result.result.api_success | default(true) }}
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info

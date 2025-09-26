@@ -1,0 +1,14 @@
+# Development Dependencies for Tulip Ansible Collections
+
+# Core requirements
+ansible>=2.9.0
+requests>=2.25.0
+
+# Testing dependencies  
+flask>=2.0.0
+pytest>=6.0.0
+pytest-ansible>=3.0.0
+
+# Development tools
+ansible-lint>=5.0.0
+yamllint>=1.26.0

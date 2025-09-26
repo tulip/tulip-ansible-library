@@ -1,0 +1,29 @@
+namespace: tulip
+name: edge
+version: 1.0.0
+readme: README.md
+authors:
+  - Tulip Engineering Team
+description: Ansible collection for managing Tulip Edge devices with gateway authentication and provisioning capabilities
+license:
+  - MIT
+license_file: LICENSE
+tags:
+  - tulip
+  - edge
+  - iot
+  - manufacturing
+  - provisioning
+  - mqtt
+  - gateway
+dependencies: {}
+repository: https://github.com/your-org/tulip-ansible
+documentation: https://github.com/your-org/tulip-ansible/blob/main/README.md
+homepage: https://tulip.co
+issues: https://github.com/your-org/tulip-ansible/issues
+build_ignore:
+  - "*.tar.gz"
+  - "*.log"
+  - ".git*"
+  - "examples/"
+  - "backups/"

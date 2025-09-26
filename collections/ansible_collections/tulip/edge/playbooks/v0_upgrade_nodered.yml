@@ -1,0 +1,34 @@
+---
+# Tulip Edge Upgrade Node-RED Playbook
+# Upgrades Node-RED to latest version
+
+- name: Upgrade Node-RED on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+  
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+    
+    - name: Execute upgrade_nodered
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: upgrade_nodered
+        token: "{{ tulip_auth_token }}"
+      register: operation_result
+      
+    - name: Display operation result
+      debug:
+        msg: "Upgrade Node-RED on {{ inventory_hostname }} completed successfully"
