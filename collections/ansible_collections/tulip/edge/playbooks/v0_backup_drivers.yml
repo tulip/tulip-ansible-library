@@ -35,6 +35,15 @@
           Backup name: {{ final_backup_name }}
           Backup type: Drivers Configuration
 
+    - name: Debug parameters being passed to module
+      debug:
+        msg: |
+          Module parameters:
+          - backup_name: {{ final_backup_name }}
+          - backup_dir: {{ drivers_backup_dir | default('./backups') }}
+          - device_name: {{ inventory_hostname }}
+          - host: {{ ansible_host | default(inventory_hostname) }}
+    
     - name: Execute backup_drivers
       tulip.edge.tulip_edge_api:
         host: "{{ ansible_host | default(inventory_hostname) }}"
