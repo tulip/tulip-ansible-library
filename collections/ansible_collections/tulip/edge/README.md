@@ -84,6 +84,11 @@ ansible-playbook tulip.edge.gateway_tulip_auth --limit newly_provisioned
 - `tulip.edge.register` - Register devices with external systems
 - `tulip.edge.factory_reset` - Perform factory reset on devices
 
+### Network Configuration Management ⚠️
+- `tulip.edge.v0_backup_network_state` - Backup complete network state configuration
+- `tulip.edge.v0_restore_network_config` - Restore network configuration (requires confirmation)
+- `tulip.edge.v0_confirm_network_config` - Confirm network changes to prevent auto-revert
+
 ### Backup & Restore - Network Components
 - `tulip.edge.backup_mqtt_broker` - Backup MQTT broker configuration
 - `tulip.edge.restore_mqtt_broker` - Restore MQTT broker configuration
@@ -140,6 +145,7 @@ ansible-playbook tulip.edge.gateway_tulip_auth --limit newly_provisioned
 
 - [Provisioning Guide](docs/PROVISIONING.md) - Complete golden device provisioning workflow
 - [Integration Guide](docs/INTEGRATION_GUIDE.md) - CI/CD and workflow integration examples
+- [Network Configuration Management](docs/network_configuration_management.md) - Safe network backup, restore, and confirmation workflows
 
 ## License
 

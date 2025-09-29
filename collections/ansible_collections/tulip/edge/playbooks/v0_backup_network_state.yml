@@ -1,0 +1,75 @@
+---
+# Tulip Edge Network State Backup Playbook
+# Backs up network state configuration from devices
+
+- name: Backup Network State from Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: true  # Need for timestamp generation
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+    backup_dir: "{{ network_backup_dir | default('./backups') }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Display backup start
+      ansible.builtin.debug:
+        msg: "Starting network state backup for {{ inventory_hostname }}..."
+
+    - name: Execute backup_network_state
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: backup_network_state
+        token: "{{ tulip_auth_token }}"
+        parameters: {}
+      register: backup_result
+      delegate_to: localhost
+
+    - name: Create backup directory
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Save network state backup to file
+      ansible.builtin.copy:
+        content: "{{ backup_result.result.config_data | to_nice_json }}"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ ansible_date_time.epoch }}.json"
+        mode: '0644'
+      delegate_to: localhost
+      when: 
+        - backup_result.result is defined
+        - backup_result.result.config_data is defined
+
+    - name: Display backup summary
+      ansible.builtin.debug:
+        msg: |
+          Network State Backup Summary for {{ inventory_hostname }}:
+          - Status: {{ 'Success' if backup_result.result.api_success else 'Failed' }}
+          - Config size: {{ backup_result.result.config_size | default(0) }} bytes
+          - Backup file: {{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ ansible_date_time.epoch }}.json
+          - Timestamp: {{ ansible_date_time.iso8601 }}
+      when: backup_result.result is defined
+
+    - name: Display operation result
+      debug:
+        msg: "Network state backup for {{ inventory_hostname }} completed successfully"
+      when: backup_result.result.api_success | default(false)
+
+  handlers:
+    - name: Handle backup failure
+      ansible.builtin.debug:
+        msg: "Failed to backup network state from {{ inventory_hostname }}"

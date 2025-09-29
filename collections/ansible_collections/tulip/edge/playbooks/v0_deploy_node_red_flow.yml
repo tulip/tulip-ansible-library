@@ -1,0 +1,80 @@
+---
+# Tulip Edge Deploy Node-RED Flow Playbook
+# Deploys a Node-RED flow from the library using the deployFlow endpoint
+
+- name: Deploy Node-RED Flow on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Check for required library flow name parameter
+      assert:
+        that:
+          - library_flow_name is defined
+          - library_flow_name | length > 0
+        fail_msg: |
+          Library flow name is required. Set with:
+          -e library_flow_name="your_flow_name"
+
+    - name: Display deployment details
+      ansible.builtin.debug:
+        msg: |
+          Node-RED Flow Deployment Details:
+          - Device: {{ inventory_hostname }}
+          - Host: {{ ansible_host | default(inventory_hostname) }}:{{ tulip_edge_port }}
+          - Library Flow Name: {{ library_flow_name }}
+
+    - name: Execute deploy_node_red_flow
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: deploy_node_red_flow
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          library_flow_name: "{{ library_flow_name }}"
+      register: deploy_result
+      delegate_to: localhost
+
+    - name: Display deployment results
+      ansible.builtin.debug:
+        msg: |
+          Node-RED Flow Deployment Results for {{ inventory_hostname }}:
+          - Status: {{ 'Success' if deploy_result.result.api_success | default(false) else 'Failed' }}
+          - Library Flow Name: {{ deploy_result.result.library_flow_name | default(library_flow_name) }}
+          - Message: {{ deploy_result.result.message | default('No message') }}
+          - Endpoint: {{ deploy_result.result.endpoint | default('N/A') }}
+      when: deploy_result.result is defined
+
+    - name: Display success message
+      ansible.builtin.debug:
+        msg: |
+          ✅ Node-RED flow "{{ library_flow_name }}" deployed successfully on {{ inventory_hostname }}
+      when: deploy_result.result is defined and deploy_result.result.api_success | default(false)
+
+    - name: Display failure message
+      ansible.builtin.debug:
+        msg: |
+          ❌ Failed to deploy Node-RED flow "{{ library_flow_name }}" on {{ inventory_hostname }}
+          Error: {{ deploy_result.result.error_message | default('Unknown error') }}
+      when: deploy_result.result is defined and not (deploy_result.result.api_success | default(false))
+
+    - name: Display debug information
+      debug:
+        var: deploy_result.debug_info
+      when: 
+        - deploy_result.debug_info is defined
+        - show_debug | default(false) | bool

@@ -1,0 +1,102 @@
+---
+# Tulip Edge Quick Setup - Machine Kit
+# Quick setup playbook for Machine Kit functionality
+
+- name: Quick Setup for Machine Kit on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: true
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Display setup banner
+      ansible.builtin.debug:
+        msg: |
+          🚀 MACHINE KIT QUICK SETUP 🚀
+          Setting up {{ inventory_hostname }} for Machine Kit usage
+
+    # Step 1: Enable Node-RED service (required for Machine Kit)
+    - name: Enable Node-RED service
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: enable_nodered
+        token: "{{ tulip_auth_token }}"
+        parameters: {}
+      register: enable_result
+      delegate_to: localhost
+
+    - name: Display Node-RED enable results
+      ansible.builtin.debug:
+        msg: |
+          Node-RED Service Status for {{ inventory_hostname }}:
+          - Status: {{ 'Enabled' if enable_result.result.api_success | default(false) else 'Failed' }}
+          - Message: {{ enable_result.result.message | default('No message') }}
+      when: enable_result.result is defined
+
+    # Step 2: Deploy Machine Kit Node-RED flow
+    - name: Deploy Machine Kit Node-RED flow
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: deploy_node_red_flow
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          library_flow_name: "machine_kit_v0"
+      register: deploy_result
+      delegate_to: localhost
+      when: enable_result.result is defined and enable_result.result.api_success | default(false)
+
+    - name: Display Machine Kit flow deployment results
+      ansible.builtin.debug:
+        msg: |
+          Machine Kit Flow Deployment for {{ inventory_hostname }}:
+          - Status: {{ 'Success' if deploy_result.result.api_success | default(false) else 'Failed' }}
+          - Flow Name: {{ deploy_result.result.library_flow_name | default('machine_kit_v0') }}
+          - Message: {{ deploy_result.result.message | default('No message') }}
+      when: deploy_result.result is defined
+
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ✅ MACHINE KIT SETUP COMPLETE FOR {{ inventory_hostname }}! ✅
+          
+          🔧 Configuration Summary:
+          - Node-RED: {{ 'Enabled' if enable_result.result.api_success | default(false) else 'Failed' }}
+          - Machine Kit Flow: {{ 'Deployed' if deploy_result.result.api_success | default(false) else 'Failed' }}
+          
+          📋 Machine Kit is now ready for use!
+          
+          🌐 Next Steps:
+          1. Access Node-RED interface at http://{{ ansible_host | default(inventory_hostname) }}:1880
+          2. Verify Machine Kit flow is running
+          3. Configure any machine-specific settings as needed
+      when: 
+        - enable_result.result is defined 
+        - deploy_result.result is defined
+
+    - name: Display setup failure message
+      ansible.builtin.debug:
+        msg: |
+          ❌ Machine Kit setup failed for {{ inventory_hostname }}
+          - Node-RED Enable: {{ 'Success' if enable_result.result.api_success | default(false) else 'Failed' }}
+          - Flow Deployment: {{ 'Success' if deploy_result.result.api_success | default(false) else 'Failed' }}
+          
+          Please check the individual task results and retry as needed.
+      when: >
+        (enable_result.result is defined and not enable_result.result.api_success | default(false)) or
+        (deploy_result.result is defined and not deploy_result.result.api_success | default(false))

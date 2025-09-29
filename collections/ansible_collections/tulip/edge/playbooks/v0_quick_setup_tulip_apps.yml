@@ -1,0 +1,73 @@
+---
+# Tulip Edge Quick Setup - Tulip Apps
+# Quick setup playbook for Tulip Apps functionality
+
+- name: Quick Setup for Tulip Apps on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: true
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Display setup banner
+      ansible.builtin.debug:
+        msg: |
+          🚀 TULIP APPS QUICK SETUP 🚀
+          Setting up {{ inventory_hostname }} for Tulip Apps usage
+
+    # Disable Node-RED service (not needed for Tulip Apps)
+    - name: Disable Node-RED service
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: disable_nodered
+        token: "{{ tulip_auth_token }}"
+        parameters: {}
+      register: disable_result
+      delegate_to: localhost
+
+    - name: Display Node-RED disable results
+      ansible.builtin.debug:
+        msg: |
+          Node-RED Service Status for {{ inventory_hostname }}:
+          - Status: {{ 'Disabled' if disable_result.result.api_success | default(false) else 'Failed to Disable' }}
+          - Message: {{ disable_result.result.message | default('No message') }}
+      when: disable_result.result is defined
+
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ✅ TULIP APPS SETUP COMPLETE FOR {{ inventory_hostname }}! ✅
+          
+          🔧 Configuration Summary:
+          - Node-RED Service: {{ 'Disabled' if disable_result.result.api_success | default(false) else 'Failed to Disable' }}
+          
+          📋 Device is now optimized for Tulip Apps usage!
+          
+          🌐 Next Steps:
+          1. Tulip Apps will run directly without Node-RED interference
+          2. Configure any additional Tulip Apps settings as needed
+          3. Deploy applications from your Tulip platform
+      when: disable_result.result is defined and disable_result.result.api_success | default(false)
+
+    - name: Display setup failure message
+      ansible.builtin.debug:
+        msg: |
+          ❌ Tulip Apps setup failed for {{ inventory_hostname }}
+          - Node-RED Disable: Failed
+          - Error: {{ disable_result.result.error_message | default('Unknown error') }}
+          
+          Please check the error details and retry as needed.
+      when: disable_result.result is defined and not (disable_result.result.api_success | default(false))

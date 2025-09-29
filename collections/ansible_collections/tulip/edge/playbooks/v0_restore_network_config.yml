@@ -1,0 +1,108 @@
+---
+# Tulip Edge Network Configuration Restore Playbook
+# Restores network configuration to devices (requires confirmation)
+
+- name: Restore Network Configuration to Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+    backup_dir: "{{ network_backup_dir | default('./network-backups') }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Check for configuration file parameter
+      assert:
+        that:
+          - config_file is defined
+          - config_file | length > 0
+        fail_msg: |
+          Configuration file path required. Set with:
+          -e config_file=/path/to/backup.json
+          
+          Or use a backup from the backup directory:
+          -e config_file={{ backup_dir }}/hostname_network_state_timestamp.json
+
+    - name: Display restore warning
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  WARNING: Network Configuration Restore ⚠️
+          
+          This operation will:
+          1. Apply new network configuration to {{ inventory_hostname }}
+          2. REQUIRE CONFIRMATION within the timeout period
+          3. AUTO-REVERT if confirmation is not received
+          
+          Make sure to run the confirmation playbook after this completes!
+          Config file: {{ config_file }}
+
+    - name: Load configuration from file
+      ansible.builtin.slurp:
+        src: "{{ config_file }}"
+      register: config_content
+      delegate_to: localhost
+
+    - name: Parse configuration data
+      set_fact:
+        network_config: "{{ config_content.content | b64decode | from_json }}"
+
+    - name: Display configuration preview
+      ansible.builtin.debug:
+        msg: |
+          Configuration Preview for {{ inventory_hostname }}:
+          - Config keys: {{ network_config.keys() | list }}
+          - Source file: {{ config_file }}
+
+    - name: Execute restore_network_config
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: restore_network_config
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          config_data: "{{ network_config }}"
+      register: restore_result
+      delegate_to: localhost
+
+    - name: Display restore results
+      ansible.builtin.debug:
+        msg: |
+          Network Configuration Restore Results for {{ inventory_hostname }}:
+          - Status: {{ 'Success' if restore_result.result.api_success else 'Failed' }}
+          - Operation ID: {{ restore_result.result.operation_id | default('N/A') }}
+          - Confirmation required: {{ restore_result.result.confirmation_required | default('Unknown') }}
+          - Auto-revert timeout: {{ restore_result.result.revert_timeout | default('Unknown') }}
+          
+          ⚠️  NEXT STEP: Run confirmation playbook to commit changes!
+          Command: ansible-playbook v0_confirm_network_config.yml -i inventory
+      when: restore_result.result is defined
+
+    - name: Display success message
+      ansible.builtin.debug:
+        msg: |
+          ✅ Network configuration applied to {{ inventory_hostname }}
+          ⏱️  Confirmation required - changes will auto-revert without confirmation!
+      when: restore_result.result.api_success | default(false)
+
+    - name: Display failure message  
+      ansible.builtin.debug:
+        msg: |
+          ❌ Failed to apply network configuration to {{ inventory_hostname }}
+          Error: {{ restore_result.result.error_message | default('Unknown error') }}
+      when: restore_result.result is defined and not (restore_result.result.api_success | default(false))
+
+    - name: Fail on restore error
+      fail:
+        msg: "Network configuration restore failed for {{ inventory_hostname }}"
+      when: restore_result.result is defined and not (restore_result.result.api_success | default(false))
