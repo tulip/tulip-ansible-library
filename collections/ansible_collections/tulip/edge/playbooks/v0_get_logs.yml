@@ -1,0 +1,118 @@
+---
+# Tulip Edge Get Logs Playbook
+# Retrieves logs from specified service with configurable number of lines
+
+- name: Get Logs from Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+    log_service: "{{ service | default('') }}"  # Service to get logs from (empty = all services)
+    log_num_lines: "{{ numLines | default(num_lines) | default(100) }}"  # Number of log lines to retrieve
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Display log retrieval parameters
+      ansible.builtin.debug:
+        msg: |
+          Retrieving logs from {{ inventory_hostname }}:
+          - Service: {{ log_service if log_service else 'all services' }}
+          - Number of lines: {{ log_num_lines }}
+
+    - name: Execute get_logs
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: get_logs
+        token: "{{ tulip_auth_token }}"
+        parameters:
+          service: "{{ log_service }}"
+          numLines: "{{ log_num_lines }}"
+      register: logs_result
+      delegate_to: localhost
+
+    - name: Display log summary
+      ansible.builtin.debug:
+        msg: |
+          Log retrieval summary for {{ inventory_hostname }}:
+          - Service: {{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}
+          - Lines retrieved: {{ logs_result.result.log_count | default(0) }}
+          - Lines requested: {{ logs_result.result.num_lines_requested | default(0) }}
+          - Lines from API: {{ logs_result.result.num_lines_from_response | default('unknown') }}
+      when: logs_result.result is defined
+
+    - name: Display logs (when log_count <= 50)
+      ansible.builtin.debug:
+        msg: |
+          Recent logs from {{ inventory_hostname }} ({{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}):
+          {{ logs_result.result.logs | join('\n') }}
+      when: 
+        - logs_result.result is defined
+        - logs_result.result.logs is defined
+        - logs_result.result.log_count | int <= 50
+
+    - name: Display logs info (when log_count > 50)
+      ansible.builtin.debug:
+        msg: |
+          Logs retrieved from {{ inventory_hostname }} ({{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}):
+          Retrieved {{ logs_result.result.log_count }} lines (too many to display, use --extra-vars "show_all_logs=true" to force display)
+          
+          First 5 lines:
+          {{ logs_result.result.logs[:5] | join('\n') }}
+          
+          Last 5 lines:
+          {{ logs_result.result.logs[-5:] | join('\n') }}
+      when: 
+        - logs_result.result is defined
+        - logs_result.result.logs is defined
+        - logs_result.result.log_count | int > 50
+        - show_all_logs | default(false) | bool == false
+
+    - name: Display all logs (forced)
+      ansible.builtin.debug:
+        msg: |
+          All logs from {{ inventory_hostname }} ({{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}):
+          {{ logs_result.result.logs | join('\n') }}
+      when: 
+        - logs_result.result is defined
+        - logs_result.result.logs is defined
+        - logs_result.result.log_count | int > 50
+        - show_all_logs | default(false) | bool == true
+
+    - name: Save logs to file (when save_logs_to_file is true)
+      ansible.builtin.copy:
+        content: |
+          # Logs from {{ inventory_hostname }}
+          # Service: {{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}
+          # Retrieved: {{ ansible_date_time.iso8601 }}
+          # Log count: {{ logs_result.result.log_count | default(0) }}
+          # Lines from API: {{ logs_result.result.num_lines_from_response | default('unknown') }}
+          
+          {{ logs_result.result.logs | join('\n') }}
+        dest: "{{ logs_output_dir | default('./logs') }}/{{ inventory_hostname }}_{{ log_service if log_service else 'all' }}_{{ ansible_date_time.epoch }}.log"
+      delegate_to: localhost
+      when: 
+        - logs_result.result is defined
+        - logs_result.result.logs is defined
+        - save_logs_to_file | default(false) | bool == true
+
+    - name: Display operation result
+      debug:
+        msg: "Get Logs from {{ inventory_hostname }} completed successfully"
+      when: logs_result.result is defined
+
+  handlers:
+    - name: Handle get logs failure
+      ansible.builtin.debug:
+        msg: "Failed to get logs from {{ inventory_hostname }}"

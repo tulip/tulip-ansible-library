@@ -1,8 +1,8 @@
 ---
-# Tulip Edge Configure HTTPS Playbook
-# Configures HTTPS settings
+# Tulip Edge Disable ConnectorHost Service Playbook
+# Disables Tulip connector host service
 
-- name: Configure HTTPS on Tulip Edge Devices
+- name: Disable ConnectorHost Service on Tulip Edge Devices
   hosts: tulip_edge_devices
   gather_facts: false
   strategy: free  # Enable parallel execution
@@ -10,7 +10,7 @@
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
     tulip_edge_https: "{{ edge_use_https | default(false) }}"
     tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
-  
+
   tasks:
     - name: Check for authentication token
       assert:
@@ -18,26 +18,32 @@
           - tulip_auth_token is defined
           - tulip_auth_token | length > 0
         fail_msg: "Authentication token not found. Please run login playbook first."
-    
-    - name: Validate configuration parameters
-      assert:
-        that:
-          - https_config is defined
-          - https_config is mapping
-        fail_msg: "https_config must be defined as a dictionary"
-    
-    - name: Execute configure_https
+
+    - name: Execute manage_services to disable tulip-connectorhost
       tulip.edge.tulip_edge_api:
         host: "{{ ansible_host | default(inventory_hostname) }}"
         port: "{{ tulip_edge_port }}"
         use_https: "{{ tulip_edge_https }}"
         timeout: "{{ tulip_edge_timeout }}"
-        action: configure_https
+        action: manage_services
         token: "{{ tulip_auth_token }}"
-        parameters: "{{ https_config }}"
-      register: operation_result
-      
+        parameters:
+          services: ["tulip-connectorhost"]
+          action: "disable"
+      register: service_result
+
       delegate_to: localhost
+    - name: Display service management result
+      ansible.builtin.debug:
+        msg: "{{ service_result.result.message }}"
+      when: service_result.result.message is defined
+
     - name: Display operation result
       debug:
-        msg: "Configure HTTPS on {{ inventory_hostname }} completed successfully"
+        msg: "Disable ConnectorHost Service on {{ inventory_hostname }} completed successfully"
+      when: service_result.changed
+
+  handlers:
+    - name: Handle service management failure
+      ansible.builtin.debug:
+        msg: "Failed to disable ConnectorHost service on {{ inventory_hostname }}"

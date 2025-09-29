@@ -1,0 +1,53 @@
+---
+# Tulip Edge Get Supported Log Services Playbook
+# Retrieves list of services that support logging
+
+- name: Get Supported Log Services from Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Execute get_supported_log_services
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: get_supported_log_services
+        token: "{{ tulip_auth_token }}"
+      register: supported_services_result
+      delegate_to: localhost
+
+    - name: Display supported log services
+      ansible.builtin.debug:
+        msg: |
+          Supported log services on {{ inventory_hostname }}:
+          {{ supported_services_result.result.supported_services | to_nice_yaml }}
+      when: supported_services_result.result.supported_services is defined
+
+    - name: Display summary
+      ansible.builtin.debug:
+        msg: "Found {{ supported_services_result.result.total_services | default(0) }} supported log services on {{ inventory_hostname }}"
+      when: supported_services_result.result.total_services is defined
+
+    - name: Display operation result
+      debug:
+        msg: "Get Supported Log Services on {{ inventory_hostname }} completed successfully"
+      when: supported_services_result.result is defined
+
+  handlers:
+    - name: Handle get supported services failure
+      ansible.builtin.debug:
+        msg: "Failed to get supported log services from {{ inventory_hostname }}"

@@ -31,6 +31,7 @@
           enabled: "{{ https_enabled | default(true) }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Toggle HTTPS on {{ inventory_hostname }} completed successfully"

@@ -37,6 +37,7 @@
         parameters: "{{ proxy_config }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Configure HTTP Proxy on {{ inventory_hostname }} completed successfully"

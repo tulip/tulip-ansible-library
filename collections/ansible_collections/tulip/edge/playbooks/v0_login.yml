@@ -31,6 +31,7 @@
         password: "{{ device_password }}"
         device_name: "{{ inventory_hostname }}"
       register: login_result
+      delegate_to: localhost
       
     - name: Store authentication token
       set_fact:

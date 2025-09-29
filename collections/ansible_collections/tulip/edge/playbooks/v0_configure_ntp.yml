@@ -37,6 +37,7 @@
         parameters: "{{ ntp_config }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Configure NTP on {{ inventory_hostname }} completed successfully"

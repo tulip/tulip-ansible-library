@@ -37,6 +37,7 @@
         parameters: "{{ network_config }}"
       register: network_result
       
+      delegate_to: localhost
     - name: Display network configuration result
       debug:
         msg: "Network configuration on {{ inventory_hostname }} completed"

@@ -22,6 +22,7 @@
         token: "{{ tulip_auth_token }}"
         device_name: "{{ inventory_hostname }}"
       register: check_result
+      delegate_to: localhost
       ignore_errors: true
       when: tulip_auth_token is defined
 
@@ -53,6 +54,7 @@
             device_name: "{{ inventory_hostname }}"
           register: login_result
 
+          delegate_to: localhost
         - name: Update token fact
           set_fact:
             tulip_auth_token: "{{ login_result.token }}"
@@ -68,6 +70,7 @@
             device_name: "{{ inventory_hostname }}"
           register: verify_result
 
+          delegate_to: localhost
         - name: Display refresh results
           debug:
             msg: |

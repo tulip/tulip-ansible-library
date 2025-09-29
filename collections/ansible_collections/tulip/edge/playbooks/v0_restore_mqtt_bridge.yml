@@ -94,6 +94,7 @@
           config_data: "{{ backup_data.config }}"
       register: operation_result
       delegate_to: localhost
+      delegate_to: localhost
       
     - name: Display operation result
       debug:

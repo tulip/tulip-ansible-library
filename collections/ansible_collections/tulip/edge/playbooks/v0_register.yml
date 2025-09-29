@@ -30,6 +30,7 @@
         device_name: "{{ inventory_hostname }}"
       register: register_result
       
+      delegate_to: localhost
     - name: Display registration result
       debug:
         msg: "Device {{ inventory_hostname }} registration: {{ register_result.result.status | default('completed') }}"

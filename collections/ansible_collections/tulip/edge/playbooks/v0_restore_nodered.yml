@@ -39,6 +39,7 @@
           restart_service: "{{ nodered_restart_after_restore | default(true) }}"
       register: restore_result
       
+      delegate_to: localhost
     - name: Display restore result
       debug:
         msg: "Node-RED restore on {{ inventory_hostname }} completed from: {{ nodered_backup_name }}"

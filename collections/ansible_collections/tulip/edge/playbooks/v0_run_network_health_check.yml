@@ -1,0 +1,110 @@
+---
+# Tulip Edge Network Health Check Playbook
+# Runs network health check and displays connectivity status
+
+- name: Run Network Health Check on Tulip Edge Devices
+  hosts: tulip_edge_devices
+  gather_facts: false
+  strategy: free  # Enable parallel execution
+  vars:
+    tulip_edge_port: "{{ edge_api_port | default(80) }}"
+    tulip_edge_https: "{{ edge_use_https | default(false) }}"
+    tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
+
+  tasks:
+    - name: Check for authentication token
+      assert:
+        that:
+          - tulip_auth_token is defined
+          - tulip_auth_token | length > 0
+        fail_msg: "Authentication token not found. Please run login playbook first."
+
+    - name: Display health check start
+      ansible.builtin.debug:
+        msg: "Starting network health check for {{ inventory_hostname }}..."
+
+    - name: Execute gateway_network_health_check
+      tulip.edge.tulip_edge_api:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ tulip_edge_port }}"
+        use_https: "{{ tulip_edge_https }}"
+        timeout: "{{ tulip_edge_timeout }}"
+        action: gateway_network_health_check
+        token: "{{ tulip_auth_token }}"
+        parameters: {}
+      register: health_result
+      delegate_to: localhost
+
+    - name: Display network health check results
+      ansible.builtin.debug:
+        msg: |
+          Network Health Check Results for {{ inventory_hostname }}:
+          
+          {{ health_result.result.data.networkHealth | default(health_result.result.networkHealth) | default(['No health check data found']) | join('\n') }}
+      when: health_result.result is defined
+
+    - name: Parse connection status
+      ansible.builtin.set_fact:
+        connection_results: >-
+          {{
+            health_result.result.data.networkHealth | default(health_result.result.networkHealth) | default([])
+            | select('search', ': \\[(?:PASS|FAIL)\\]')
+            | list
+          }}
+      when: health_result.result is defined
+
+    - name: Display connection summary
+      ansible.builtin.debug:
+        msg: |
+          Connection Summary for {{ inventory_hostname }}:
+          {% for result in connection_results %}
+          {{ result }}
+          {% endfor %}
+          
+          Status: {% if connection_results | select('search', 'FAIL') | list | length > 0 %}❌ Some connections failed{% else %}✅ All connections passed{% endif %}
+      when: 
+        - health_result.result is defined
+        - connection_results is defined
+
+    - name: Count connection results
+      ansible.builtin.set_fact:
+        passed_connections: "{{ connection_results | select('search', 'PASS') | list | length }}"
+        failed_connections: "{{ connection_results | select('search', 'FAIL') | list | length }}"
+        total_connections: "{{ connection_results | length }}"
+      when: connection_results is defined
+
+    - name: Display connection statistics
+      ansible.builtin.debug:
+        msg: |
+          Network Health Statistics for {{ inventory_hostname }}:
+          - Total connections tested: {{ total_connections }}
+          - Passed: {{ passed_connections }}
+          - Failed: {{ failed_connections }}
+          - Success rate: {% if total_connections | int > 0 %}{{ ((passed_connections | int) * 100 / (total_connections | int)) | round(1) }}%{% else %}N/A{% endif %}
+      when: 
+        - passed_connections is defined
+        - failed_connections is defined
+
+    - name: Save health check to file (when save_health_check_to_file is true)
+      ansible.builtin.copy:
+        content: |
+          # Network Health Check from {{ inventory_hostname }}
+          # Retrieved: {{ ansible_date_time.iso8601 }}
+          # Passed: {{ passed_connections | default('unknown') }} / Failed: {{ failed_connections | default('unknown') }}
+          
+          {{ health_result.result.data.networkHealth | default(health_result.result.networkHealth) | default(['No health check data found']) | join('\n') }}
+        dest: "{{ health_check_output_dir | default('./health-checks') }}/{{ inventory_hostname }}_network_health_{{ ansible_date_time.epoch }}.txt"
+      delegate_to: localhost
+      when: 
+        - health_result.result is defined
+        - save_health_check_to_file | default(false) | bool == true
+
+    - name: Display operation result
+      debug:
+        msg: "Network health check for {{ inventory_hostname }} completed successfully"
+      when: health_result.result is defined
+
+  handlers:
+    - name: Handle health check failure
+      ansible.builtin.debug:
+        msg: "Failed to run network health check on {{ inventory_hostname }}"

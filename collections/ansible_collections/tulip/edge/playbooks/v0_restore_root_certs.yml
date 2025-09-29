@@ -38,6 +38,7 @@
           backup_name: "{{ certs_backup_name }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Restore Root Certificates on {{ inventory_hostname }} completed successfully"

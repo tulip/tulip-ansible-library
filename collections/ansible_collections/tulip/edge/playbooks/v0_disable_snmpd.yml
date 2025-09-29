@@ -1,8 +1,8 @@
 ---
-# Tulip Edge Node-RED Toggle Playbook
-# Toggles Node-RED service on/off
+# Tulip Edge Disable SNMPD Service Playbook
+# Disables SNMP daemon service
 
-- name: Toggle Node-RED on Tulip Edge Devices
+- name: Disable SNMPD Service on Tulip Edge Devices
   hosts: tulip_edge_devices
   gather_facts: false
   strategy: free  # Enable parallel execution
@@ -10,8 +10,7 @@
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
     tulip_edge_https: "{{ edge_use_https | default(false) }}"
     tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
-    nodered_enabled: "{{ nodered_state | default(true) }}"
-  
+
   tasks:
     - name: Check for authentication token
       assert:
@@ -19,18 +18,32 @@
           - tulip_auth_token is defined
           - tulip_auth_token | length > 0
         fail_msg: "Authentication token not found. Please run login playbook first."
-    
-    - name: Toggle Node-RED service
+
+    - name: Execute manage_services to disable snmpd
       tulip.edge.tulip_edge_api:
         host: "{{ ansible_host | default(inventory_hostname) }}"
         port: "{{ tulip_edge_port }}"
         use_https: "{{ tulip_edge_https }}"
         timeout: "{{ tulip_edge_timeout }}"
-        action: disable_nodered
+        action: manage_services
         token: "{{ tulip_auth_token }}"
-      register: toggle_result
-      
+        parameters:
+          services: ["snmpd"]
+          action: "disable"
+      register: service_result
+
       delegate_to: localhost
-    - name: Display toggle result
+    - name: Display service management result
+      ansible.builtin.debug:
+        msg: "{{ service_result.result.message }}"
+      when: service_result.result.message is defined
+
+    - name: Display operation result
       debug:
-        msg: "Node-RED on {{ inventory_hostname }}: {{ 'enabled' if nodered_enabled else 'disabled' }}"
+        msg: "Disable SNMPD Service on {{ inventory_hostname }} completed successfully"
+      when: service_result.changed
+
+  handlers:
+    - name: Handle service management failure
+      ansible.builtin.debug:
+        msg: "Failed to disable SNMPD service on {{ inventory_hostname }}"

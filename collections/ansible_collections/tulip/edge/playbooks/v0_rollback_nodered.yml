@@ -29,6 +29,7 @@
         token: "{{ tulip_auth_token }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Rollback Node-RED on {{ inventory_hostname }} completed successfully"

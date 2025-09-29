@@ -38,6 +38,7 @@
           confirm: "{{ confirm_reset }}"
       register: operation_result
       
+      delegate_to: localhost
     - name: Display operation result
       debug:
         msg: "Factory Reset on {{ inventory_hostname }} completed successfully"

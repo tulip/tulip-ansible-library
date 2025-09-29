@@ -50,6 +50,7 @@
         password: "{{ device_password }}"
       register: login_result
 
+      delegate_to: localhost
     - name: Restore HTTP proxy configuration to device
       tulip.edge.tulip_edge_api:
         host: "{{ inventory_hostname }}"
@@ -59,6 +60,7 @@
           config_data: "{{ http_proxy_config }}"
       register: restore_result
 
+      delegate_to: localhost
     - name: Display restore results
       debug:
         msg: 

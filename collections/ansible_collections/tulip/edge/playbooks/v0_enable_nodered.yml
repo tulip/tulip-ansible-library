@@ -30,6 +30,7 @@
         token: "{{ tulip_auth_token }}"
       register: toggle_result
       
+      delegate_to: localhost
     - name: Display toggle result
       debug:
         msg: "Node-RED on {{ inventory_hostname }}: {{ 'enabled' if nodered_enabled else 'disabled' }}"

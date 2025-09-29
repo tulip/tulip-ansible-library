@@ -21,6 +21,7 @@
         token: "{{ tulip_auth_token }}"
         device_name: "{{ inventory_hostname }}"
       register: check_result
+      delegate_to: localhost
       ignore_errors: true
       when: tulip_auth_token is defined
 
