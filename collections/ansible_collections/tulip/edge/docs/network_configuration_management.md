@@ -92,7 +92,7 @@ ansible-playbook tulip.edge.v0_restore_network_config -l EIO-01-6B4FE843 -i inve
 ```
 TASK [Display restore results]
 ok: [EIO-01-6B4FE843] => {
-    "msg": "Network Configuration Restore Results for EIO-01-6B4FE843:\n- Status: Success\n- Operation ID: net-restore-1705312500\n- Confirmation required: true\n- Auto-revert timeout: 300 seconds\n\n⚠️  NEXT STEP: Run confirmation playbook to commit changes!\nCommand: ansible-playbook v0_confirm_network_config.yml -i inventory"
+    "msg": "Network Configuration Restore Results for EIO-01-6B4FE843:\n- Status: Success\n- Operation ID: net-restore-1705312500\n- Confirmation required: true\n- Auto-revert timeout: 120 seconds\n\n⚠️  NEXT STEP: Run confirmation playbook to commit changes!\nCommand: ansible-playbook v0_confirm_network_config.yml -i inventory"
 }
 ```
 
@@ -151,7 +151,7 @@ ansible-playbook tulip.edge.v0_confirm_network_config -l target-device -i invent
 ## Safety Features
 
 ### ⚠️ Auto-Revert Protection
-- **Timeout Period**: Network changes automatically revert after timeout (typically 5 minutes)
+- **Timeout Period**: Network changes automatically revert after timeout (typically 2 minutes)
 - **Safety Net**: Prevents permanent lockout from network configuration errors
 - **Recovery**: Device returns to last known working configuration
 - **Manual Recovery**: Physical access allows recovery if needed
@@ -227,7 +227,7 @@ fatal: [EIO-01-6B4FE843]: FAILED! => {
 }
 ```
 **Recovery**: 
-1. Wait for auto-revert timeout period (typically 5 minutes)
+1. Wait for auto-revert timeout period (typically 2 minutes)
 2. Device should revert to previous working configuration  
 3. Try connecting with previous network settings
 4. Physical access may be required if auto-revert fails
@@ -248,7 +248,7 @@ ok: [EIO-01-6B4FE843] => {
 ### Recovery Procedures
 
 #### If Network Configuration Breaks Connectivity
-1. **Wait for Auto-Revert**: Most configurations will revert automatically within 5 minutes
+1. **Wait for Auto-Revert**: Most configurations will revert automatically within 2 minutes
 2. **Check Physical Access**: Ensure you can physically access the device if needed
 3. **Verify Revert**: After timeout, device should be accessible with previous settings
 4. **Manual Recovery**: Use console/physical access if auto-revert fails
