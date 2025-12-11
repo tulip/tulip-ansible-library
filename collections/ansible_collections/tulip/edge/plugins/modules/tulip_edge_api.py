@@ -166,7 +166,7 @@ class TulipEdgeAPI:
         protocol = 'https' if self.use_https else 'http'
         self.base_url = f"{protocol}://{self.host}:{self.port}/api/v0"
         
-    def _make_request(self, endpoint, method='GET', data=None, headers=None):
+    def _make_request(self, endpoint, method='GET', data=None, headers=None, port=80):
         """Make HTTP request to the API"""
         url = f"{self.base_url}{endpoint}"
         
@@ -229,8 +229,8 @@ class TulipEdgeAPI:
         # For register, we might not have serial number yet, use device name as fallback
         device_name = self.module.params.get('device_name', '')
         hashed_password = self._hash_password(password, device_name)
-        data = {'password': hashed_password}
-        result, info, debug_info = self._make_request('/password', method='POST', data=data)
+        data = {'new_pass': hashed_password}
+        result, info, debug_info = self._make_request('/password', method='PUT', data=data)
         return {'result': result, 'changed': True, 'debug_info': debug_info}
     
     def login(self, username, password):
@@ -2097,6 +2097,10 @@ class TulipEdgeAPI:
     def check_login(self, token, parameters):
         """Check if login token is still valid"""
         return self._authenticated_request('/auth/loggedIn', token, method='GET', data=None)
+    
+    def get_status(self, token, parameters):
+        """Get device status information"""
+        return self._authenticated_request('/kado/status', token, method='GET', data=None)
 
 
 def main():
@@ -2108,7 +2112,7 @@ def main():
             type='str',
             required=True,
             choices=[
-                'register', 'login', 'check_login', 'enable_nodered', 'disable_nodered', 'backup_nodered',
+                'register', 'login', 'check_login', 'get_status', 'enable_nodered', 'disable_nodered', 'backup_nodered',
                 'restore_nodered', 'get_nodered_token', 'upgrade_nodered', 'rollback_nodered', 'deploy_node_red_flow',
                 'change_password', 'factory_reset',
                 'enable_mqtt_broker', 'disable_mqtt_broker',

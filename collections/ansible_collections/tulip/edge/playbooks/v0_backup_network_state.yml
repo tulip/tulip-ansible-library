@@ -4,7 +4,7 @@
 
 - name: Backup Network State from Tulip Edge Devices
   hosts: tulip_edge_devices
-  gather_facts: true  # Need for timestamp generation
+  gather_facts: false
   strategy: free  # Enable parallel execution
   vars:
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
