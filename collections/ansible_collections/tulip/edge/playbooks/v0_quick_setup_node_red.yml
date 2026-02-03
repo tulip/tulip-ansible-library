@@ -4,7 +4,7 @@
 
 - name: Quick Setup for Node-RED on Tulip Edge Devices
   hosts: tulip_edge_devices
-  gather_facts: true
+  gather_facts: false
   strategy: free  # Enable parallel execution
   vars:
     tulip_edge_port: "{{ edge_api_port | default(80) }}"

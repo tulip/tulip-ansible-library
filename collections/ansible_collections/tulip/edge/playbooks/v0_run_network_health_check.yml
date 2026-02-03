@@ -89,11 +89,11 @@
       ansible.builtin.copy:
         content: |
           # Network Health Check from {{ inventory_hostname }}
-          # Retrieved: {{ ansible_date_time.iso8601 }}
+          # Retrieved: {{ now() }}
           # Passed: {{ passed_connections | default('unknown') }} / Failed: {{ failed_connections | default('unknown') }}
           
           {{ health_result.result.data.networkHealth | default(health_result.result.networkHealth) | default(['No health check data found']) | join('\n') }}
-        dest: "{{ health_check_output_dir | default('./health-checks') }}/{{ inventory_hostname }}_network_health_{{ ansible_date_time.epoch }}.txt"
+        dest: "{{ health_check_output_dir | default('./health-checks') }}/{{ inventory_hostname }}_network_health_{{ now() }}.txt"
       delegate_to: localhost
       when: 
         - health_result.result is defined

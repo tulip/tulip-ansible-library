@@ -30,7 +30,7 @@
 
     - name: Generate backup filename with timestamp
       set_fact:
-        backup_filename: "{{ inventory_hostname }}-http-proxy-{{ ansible_date_time.strftime('%Y%m%d-%H%M%S') }}.json"
+        backup_filename: "{{ inventory_hostname }}-http-proxy-{{ now(fmt='%Y%m%d-%H%M%S') }}.json"
       delegate_to: localhost
 
     - name: Save HTTP proxy configuration to local backup file
