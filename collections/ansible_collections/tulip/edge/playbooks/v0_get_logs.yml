@@ -95,12 +95,12 @@
         content: |
           # Logs from {{ inventory_hostname }}
           # Service: {{ logs_result.result.service_from_response | default(logs_result.result.service_requested) | default('unknown') }}
-          # Retrieved: {{ ansible_date_time.iso8601 }}
+          # Retrieved: {{ now()  }}
           # Log count: {{ logs_result.result.log_count | default(0) }}
           # Lines from API: {{ logs_result.result.num_lines_from_response | default('unknown') }}
           
           {{ logs_result.result.logs | join('\n') }}
-        dest: "{{ logs_output_dir | default('./logs') }}/{{ inventory_hostname }}_{{ log_service if log_service else 'all' }}_{{ ansible_date_time.epoch }}.log"
+        dest: "{{ logs_output_dir | default('./logs') }}/{{ inventory_hostname }}_{{ log_service if log_service else 'all' }}_{{ now(fmt='%Y%m%d%H%M%S') }}.log"
       delegate_to: localhost
       when: 
         - logs_result.result is defined

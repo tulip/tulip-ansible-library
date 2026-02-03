@@ -4,7 +4,7 @@
 
 - name: Backup LightKit on Tulip Edge Devices
   hosts: tulip_edge_devices
-  gather_facts: true  # Need this for ansible_date_time
+  gather_facts: false
   strategy: free  # Enable parallel execution
   vars:
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
@@ -21,7 +21,7 @@
     
     - name: Generate backup name
       set_fact:
-        generated_backup_name: "{{ inventory_hostname }}-lightkit-{{ ansible_date_time.epoch }}"
+        generated_backup_name: "{{ inventory_hostname }}-lightkit-{{ now(fmt='%Y%m%d%H%M%S') }}"
       when: lightkit_backup_name is not defined
     
     - name: Use provided or generated backup name
@@ -73,7 +73,7 @@
           {
             "device": "{{ inventory_hostname }}",
             "component": "lightkit",
-            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "timestamp": "{{ now() }}",
             "backup_name": "{{ final_backup_name }}",
             "config": {{ operation_result.result.config_data | to_nice_json }}
           }
