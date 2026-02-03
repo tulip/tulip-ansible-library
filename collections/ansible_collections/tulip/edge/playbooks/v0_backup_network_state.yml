@@ -47,7 +47,7 @@
     - name: Save network state backup to file
       ansible.builtin.copy:
         content: "{{ backup_result.result.config_data | to_nice_json }}"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ now()}}.json"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ now(fmt='%Y%m%d%H%M%S') }}.json"
         mode: '0644'
       delegate_to: localhost
       when: 
@@ -60,7 +60,7 @@
           Network State Backup Summary for {{ inventory_hostname }}:
           - Status: {{ 'Success' if backup_result.result.api_success else 'Failed' }}
           - Config size: {{ backup_result.result.config_size | default(0) }} bytes
-          - Backup file: {{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ now() }}.json
+          - Backup file: {{ backup_dir }}/{{ inventory_hostname }}_network_state_{{ now(fmt='%Y%m%d%H%M%S') }}.json
           - Timestamp: {{ now() }}
       when: backup_result.result is defined
 
