@@ -21,7 +21,7 @@
     
     - name: Generate backup name
       set_fact:
-        generated_backup_name: "{{ inventory_hostname }}-lightkit-{{ now() }}"
+        generated_backup_name: "{{ inventory_hostname }}-lightkit-{{ now(fmt='%Y%m%d%H%M%S') }}"
       when: lightkit_backup_name is not defined
     
     - name: Use provided or generated backup name
