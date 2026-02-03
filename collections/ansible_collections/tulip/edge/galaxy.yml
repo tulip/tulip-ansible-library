@@ -17,10 +17,10 @@ tags:
   - mqtt
   - gateway
 dependencies: {}
-repository: https://github.com/your-org/tulip-ansible
-documentation: https://github.com/your-org/tulip-ansible/blob/main/README.md
+repository: https://github.com/tulip/tulip-ansible-library
+documentation: https://github.com/tulip/tulip-ansible-library/blob/trunk/README.md
 homepage: https://tulip.co
-issues: https://github.com/your-org/tulip-ansible/issues
+issues: https://github.com/tulip/tulip-ansible-library/issues
 build_ignore:
   - "*.tar.gz"
   - "*.log"
