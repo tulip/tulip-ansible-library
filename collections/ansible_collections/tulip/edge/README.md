@@ -11,12 +11,12 @@ ansible-galaxy collection install tulip.edge
 
 ### From GitHub (development)
 ```bash
-ansible-galaxy collection install git+https://github.com/your-org/tulip-ansible.git#/collections/ansible_collections/tulip/edge
+ansible-galaxy collection install git+https://github.com/tulip/tulip-ansible-library.git#/collections/ansible_collections/tulip/edge
 ```
 
 ### From Local Source
 ```bash
-git clone https://github.com/your-org/tulip-ansible.git
+git clone https://github.com/tulip/tulip-ansible-library.git
 cd tulip-ansible
 ansible-galaxy collection install ./collections/ansible_collections/tulip/edge
 ```
@@ -153,6 +153,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- **Issues**: https://github.com/your-org/tulip-ansible/issues  
-- **Documentation**: https://github.com/your-org/tulip-ansible
+- **Issues**: https://github.com/tulip/tulip-ansible-library;/issues
+- **Documentation**: https://github.com/tulip/tulip-ansible-library
 - **Homepage**: https://tulip.co

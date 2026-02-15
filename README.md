@@ -143,4 +143,4 @@ tulip-ansible/
 
 ## License
 
-MIT License - see [LICENSE](LICENSE.MD) for details.
+MIT License - see [LICENSE](LICENSE.md) for details.
