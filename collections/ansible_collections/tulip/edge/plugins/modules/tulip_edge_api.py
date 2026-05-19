@@ -1591,7 +1591,116 @@ class TulipEdgeAPI:
     def clear_network_certificates(self, token, parameters):
         """Clear Root Certs"""
         return self._authenticated_request('/network/certificate/all', token, method='DELETE', data=parameters)
-    
+
+    def backup_root_certs(self, token, parameters):
+        """Backup root certs - GET /security/root-certs and return config data for local persistence."""
+        import json
+        from datetime import datetime
+
+        debug_info = {
+            'step': 'starting',
+            'messages': []
+        }
+
+        debug_info['messages'].append("Getting root certs from device API (/security/root-certs)")
+
+        try:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {token}'
+            }
+            result, info, api_debug = self._make_request(
+                '/security/root-certs', method='GET', headers=headers
+            )
+
+            if result:
+                config_data = result
+                debug_info['messages'].append("Successfully retrieved root certs from device API")
+                debug_info['api_success'] = True
+            else:
+                config_data = {
+                    "note": "API call failed, placeholder backup created",
+                    "timestamp": datetime.now().isoformat(),
+                    "error": "Could not retrieve root certs from device"
+                }
+                debug_info['messages'].append("API call failed, using placeholder config")
+                debug_info['api_success'] = False
+
+        except Exception as api_error:
+            config_data = {
+                "note": "API call failed, placeholder backup created",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(api_error),
+                "debug_info": f"Failed to call API: {str(api_error)}"
+            }
+            debug_info['messages'].append(f"API call exception: {str(api_error)}")
+            debug_info['api_success'] = False
+            debug_info['api_error'] = str(api_error)
+
+        debug_info['messages'].append("Returning root certs data to Ansible for local file writing")
+
+        return {
+            'result': {
+                'config_data': config_data,
+                'config_size': len(json.dumps(config_data)),
+                'message': 'Root certs retrieved successfully (will be written locally by Ansible)',
+                'api_success': 'note' not in config_data
+            },
+            'changed': True,
+            'debug_info': debug_info
+        }
+
+    def restore_root_certs(self, token, parameters):
+        """Restore root certs - receive config data from Ansible and POST to /security/root-certs."""
+        import json
+
+        debug_info = {
+            'step': 'starting',
+            'messages': []
+        }
+
+        config_data = parameters.get('config_data')
+        if not config_data:
+            self.module.fail_json(
+                msg="No config_data provided in parameters",
+                debug_info=debug_info
+            )
+
+        debug_info['messages'].append("Received root certs config data from Ansible")
+        debug_info['config_size'] = len(json.dumps(config_data))
+
+        try:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {token}'
+            }
+            result, info, api_debug = self._make_request(
+                '/security/root-certs', method='POST', data=config_data, headers=headers
+            )
+
+            debug_info['messages'].append("Successfully sent root certs to device API")
+            debug_info['api_success'] = True
+
+            return {
+                'result': {
+                    'config_size': len(json.dumps(config_data)),
+                    'message': 'Root certs restored successfully',
+                    'api_response': result
+                },
+                'changed': True,
+                'debug_info': debug_info
+            }
+
+        except Exception as api_error:
+            debug_info['messages'].append(f"Failed to restore root certs: {str(api_error)}")
+            debug_info['api_success'] = False
+            debug_info['api_error'] = str(api_error)
+
+            self.module.fail_json(
+                msg=f"Failed to restore root certs to device: {str(api_error)}",
+                debug_info=debug_info
+            )
+
     def backup_https(self, token, parameters):
         """Backup HTTPS configuration - GET from device and return config data"""
         import os

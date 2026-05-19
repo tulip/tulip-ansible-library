@@ -1,6 +1,9 @@
 ---
 # Tulip Edge Restore Root Certificates Playbook
-# Restores root certificates
+# Restores root certs from local backup files
+# Usage:
+#   - Automatic latest: ansible-playbook v0_restore_root_certs.yml
+#   - Specific backup:  ansible-playbook v0_restore_root_certs.yml -e "root_certs_backup_name=specific-backup"
 
 - name: Restore Root Certificates on Tulip Edge Devices
   hosts: tulip_edge_devices
@@ -10,7 +13,7 @@
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
     tulip_edge_https: "{{ edge_use_https | default(false) }}"
     tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
-  
+
   tasks:
     - name: Check for authentication token
       assert:
@@ -18,15 +21,60 @@
           - tulip_auth_token is defined
           - tulip_auth_token | length > 0
         fail_msg: "Authentication token not found. Please run login playbook first."
-    
-    - name: Validate required parameters
-      assert:
-        that:
-          - certs_backup_name is defined
-          - certs_backup_name | length > 0
-        fail_msg: "certs_backup_name must be specified"
-    
-    - name: Execute restore_root_certs
+
+    - name: Find root-certs backup files for this device
+      find:
+        paths: "{{ root_certs_backup_dir | default('./backups') }}"
+        patterns: "{{ inventory_hostname }}-root-certs-*.json"
+      register: backup_files
+      delegate_to: localhost
+
+    - name: Determine which backup to use (latest by mtime when name not specified)
+      set_fact:
+        backup_to_restore: "{{ backup_files.files | sort(attribute='mtime') | last }}"
+      when:
+        - root_certs_backup_name is not defined
+        - backup_files.files | length > 0
+
+    - name: Use specific backup if requested
+      set_fact:
+        backup_to_restore: "{{ {'path': root_certs_backup_dir | default('./backups') + '/' + (root_certs_backup_name if root_certs_backup_name.endswith('.json') else root_certs_backup_name + '.json')} }}"
+      when: root_certs_backup_name is defined
+
+    - name: Check if backup file exists
+      stat:
+        path: "{{ backup_to_restore.path }}"
+      register: backup_file_stat
+      delegate_to: localhost
+
+    - name: Fail if no backup found
+      fail:
+        msg: |
+          No backup file found for device {{ inventory_hostname }}
+          {% if root_certs_backup_name is defined %}Requested file: {{ backup_to_restore.path }}{% else %}No backups found matching: {{ inventory_hostname }}-root-certs-*.json{% endif %}
+          Available files: {{ backup_files.files | map(attribute='path') | list }}
+      when: not backup_file_stat.stat.exists
+
+    - name: Read backup file
+      slurp:
+        src: "{{ backup_to_restore.path }}"
+      register: backup_content
+      delegate_to: localhost
+
+    - name: Parse backup data
+      set_fact:
+        backup_data: "{{ backup_content.content | b64decode | from_json }}"
+
+    - name: Display restore details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Restoring from: {{ backup_to_restore.path }}
+          Original device: {{ backup_data.device }}
+          Backup timestamp: {{ backup_data.timestamp }}
+          Config size: {{ backup_data.config | to_json | length }} bytes
+
+    - name: Restore root certs to device
       tulip.edge.tulip_edge_api:
         host: "{{ ansible_host | default(inventory_hostname) }}"
         port: "{{ tulip_edge_port }}"
@@ -34,11 +82,22 @@
         timeout: "{{ tulip_edge_timeout }}"
         action: restore_root_certs
         token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
         parameters:
-          backup_name: "{{ certs_backup_name }}"
+          config_data: "{{ backup_data.config }}"
       register: operation_result
-      
       delegate_to: localhost
+
     - name: Display operation result
       debug:
-        msg: "Restore Root Certificates on {{ inventory_hostname }} completed successfully"
+        msg: |
+          Root certs restore completed successfully
+          Device: {{ inventory_hostname }}
+          Restored from: {{ backup_to_restore.path }}
+          Original device: {{ backup_data.device }}
+          Backup timestamp: {{ backup_data.timestamp }}
+          Status: {{ operation_result.result.message | default('Success') }}
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info
