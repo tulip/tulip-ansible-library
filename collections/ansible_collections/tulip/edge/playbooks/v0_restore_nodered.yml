@@ -1,6 +1,9 @@
 ---
 # Tulip Edge Node-RED Restore Playbook
-# Restores Node-RED configuration from backup
+# Restores Node-RED configuration from local backup files
+# Usage:
+#   - Automatic latest: ansible-playbook v0_restore_nodered.yml
+#   - Specific backup:  ansible-playbook v0_restore_nodered.yml -e "nodered_backup_name=specific-backup"
 
 - name: Restore Node-RED on Tulip Edge Devices
   hosts: tulip_edge_devices
@@ -10,7 +13,7 @@
     tulip_edge_port: "{{ edge_api_port | default(80) }}"
     tulip_edge_https: "{{ edge_use_https | default(false) }}"
     tulip_edge_timeout: "{{ edge_api_timeout | default(30) }}"
-  
+
   tasks:
     - name: Check for authentication token
       assert:
@@ -18,14 +21,59 @@
           - tulip_auth_token is defined
           - tulip_auth_token | length > 0
         fail_msg: "Authentication token not found. Please run login playbook first."
-    
-    - name: Validate backup name
-      assert:
-        that:
-          - nodered_backup_name is defined
-          - nodered_backup_name | length > 0
-        fail_msg: "nodered_backup_name must be specified for restore operation"
-    
+
+    - name: Find Node-RED backup files for this device
+      find:
+        paths: "{{ nodered_backup_dir | default('./backups') }}"
+        patterns: "{{ inventory_hostname }}-nodered-*.json"
+      register: backup_files
+      delegate_to: localhost
+
+    - name: Determine which backup to use (latest by mtime when name not specified)
+      set_fact:
+        backup_to_restore: "{{ backup_files.files | sort(attribute='mtime') | last }}"
+      when:
+        - nodered_backup_name is not defined
+        - backup_files.files | length > 0
+
+    - name: Use specific backup if requested
+      set_fact:
+        backup_to_restore: "{{ {'path': nodered_backup_dir | default('./backups') + '/' + (nodered_backup_name if nodered_backup_name.endswith('.json') else nodered_backup_name + '.json')} }}"
+      when: nodered_backup_name is defined
+
+    - name: Check if backup file exists
+      stat:
+        path: "{{ backup_to_restore.path }}"
+      register: backup_file_stat
+      delegate_to: localhost
+
+    - name: Fail if no backup found
+      fail:
+        msg: |
+          No backup file found for device {{ inventory_hostname }}
+          {% if nodered_backup_name is defined %}Requested file: {{ backup_to_restore.path }}{% else %}No backups found matching: {{ inventory_hostname }}-nodered-*.json{% endif %}
+          Available files: {{ backup_files.files | map(attribute='path') | list }}
+      when: not backup_file_stat.stat.exists
+
+    - name: Read backup file
+      slurp:
+        src: "{{ backup_to_restore.path }}"
+      register: backup_content
+      delegate_to: localhost
+
+    - name: Parse backup data
+      set_fact:
+        backup_data: "{{ backup_content.content | b64decode | from_json }}"
+
+    - name: Display restore details
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Restoring from: {{ backup_to_restore.path }}
+          Original device: {{ backup_data.device }}
+          Backup timestamp: {{ backup_data.timestamp }}
+          Config size: {{ backup_data.config | to_json | length }} bytes
+
     - name: Restore Node-RED configuration
       tulip.edge.tulip_edge_api:
         host: "{{ ansible_host | default(inventory_hostname) }}"
@@ -34,12 +82,23 @@
         timeout: "{{ tulip_edge_timeout }}"
         action: restore_nodered
         token: "{{ tulip_auth_token }}"
+        device_name: "{{ inventory_hostname }}"
         parameters:
-          backup_name: "{{ nodered_backup_name }}"
-          restart_service: "{{ nodered_restart_after_restore | default(true) }}"
-      register: restore_result
-      
+          config_data: "{{ backup_data.config }}"
+          nodered_token: "{{ nodered_token | default(omit) }}"
+      register: operation_result
       delegate_to: localhost
-    - name: Display restore result
+
+    - name: Display operation result
       debug:
-        msg: "Node-RED restore on {{ inventory_hostname }} completed from: {{ nodered_backup_name }}"
+        msg: |
+          Node-RED restore completed successfully
+          Device: {{ inventory_hostname }}
+          Restored from: {{ backup_to_restore.path }}
+          Original device: {{ backup_data.device }}
+          Backup timestamp: {{ backup_data.timestamp }}
+          Status: {{ operation_result.result.message | default('Success') }}
+
+    - name: Display debug information
+      debug:
+        var: operation_result.debug_info
