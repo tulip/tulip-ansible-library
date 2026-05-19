@@ -1421,37 +1421,45 @@ class TulipEdgeAPI:
         }
 
     def restore_http_proxy(self, token, parameters):
-        """Restore HTTP proxy configuration - Receive config data and POST to device"""
+        """Restore HTTP proxy configuration - receive config data and PUT to device.
+
+        The device returns 405 Method Not Allowed for POST on /network/proxy
+        (Allow: GET,HEAD,PUT,DELETE). PUT is the correct verb for writes.
+        """
         import json
-        from datetime import datetime
-        
+
         debug_info = {
             'step': 'starting',
             'messages': []
         }
-        
-        # Get config data from parameters (passed from Ansible)
+
+        # Get config data from parameters (passed from Ansible). Accept either
+        # a wrapped payload ({"data": {host, port, ...}}) or the unwrapped form
+        # so backups from backup_http_proxy can be fed back without massaging.
         config_data = parameters.get('config_data')
         if not config_data:
             self.module.fail_json(
                 msg="No config_data provided in parameters",
                 debug_info=debug_info
             )
-        
+        if isinstance(config_data, dict) and 'data' in config_data and isinstance(config_data['data'], dict):
+            config_data = config_data['data']
+
         debug_info['messages'].append("Received HTTP proxy config data from Ansible")
         debug_info['config_size'] = len(json.dumps(config_data))
-        
-        # Send configuration to device
+
         try:
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {token}'
             }
-            result, info, api_debug = self._make_request('/network/proxy', method='POST', data=config_data, headers=headers)
-            
+            result, info, api_debug = self._make_request(
+                '/network/proxy', method='PUT', data=config_data, headers=headers
+            )
+
             debug_info['messages'].append("Successfully sent HTTP proxy config to device API")
             debug_info['api_success'] = True
-            
+
             return {
                 'result': {
                     'config_size': len(json.dumps(config_data)),
@@ -1461,14 +1469,82 @@ class TulipEdgeAPI:
                 'changed': True,
                 'debug_info': debug_info
             }
-            
+
         except Exception as api_error:
             debug_info['messages'].append(f"Failed to restore HTTP proxy config to device: {str(api_error)}")
             debug_info['api_success'] = False
             debug_info['api_error'] = str(api_error)
-            
+
             self.module.fail_json(
                 msg=f"Failed to restore HTTP proxy configuration to device: {str(api_error)}",
+                debug_info=debug_info
+            )
+
+    def configure_http_proxy(self, token, parameters):
+        """Configure HTTP proxy with direct parameters - PUT /network/proxy.
+
+        Accepts {host, port, username, password} either at the top level of
+        ``parameters`` (Ansible passes the module's `parameters:` dict
+        directly) or wrapped under ``parameters.config_data``. This mirrors
+        ``restore_http_proxy`` so the same module action can serve both
+        roundtrips (golden-image restore) and direct provisioning.
+        """
+        import json
+
+        debug_info = {
+            'step': 'starting',
+            'messages': []
+        }
+
+        if 'config_data' in parameters and isinstance(parameters['config_data'], dict):
+            payload = parameters['config_data']
+            if 'data' in payload and isinstance(payload['data'], dict):
+                payload = payload['data']
+        else:
+            payload = {
+                k: parameters[k]
+                for k in ('host', 'port', 'username', 'password')
+                if k in parameters
+            }
+
+        if not payload.get('host'):
+            self.module.fail_json(
+                msg="configure_http_proxy requires at least a 'host' parameter (and typically port/username/password).",
+                debug_info=debug_info
+            )
+
+        debug_info['messages'].append("Configuring HTTP proxy on device")
+        debug_info['config_size'] = len(json.dumps(payload))
+
+        try:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {token}'
+            }
+            result, info, api_debug = self._make_request(
+                '/network/proxy', method='PUT', data=payload, headers=headers
+            )
+
+            debug_info['messages'].append("Successfully sent HTTP proxy config to device API")
+            debug_info['api_success'] = True
+
+            return {
+                'result': {
+                    'config_size': len(json.dumps(payload)),
+                    'message': 'HTTP proxy configured successfully',
+                    'api_response': result
+                },
+                'changed': True,
+                'debug_info': debug_info
+            }
+
+        except Exception as api_error:
+            debug_info['messages'].append(f"Failed to configure HTTP proxy: {str(api_error)}")
+            debug_info['api_success'] = False
+            debug_info['api_error'] = str(api_error)
+
+            self.module.fail_json(
+                msg=f"Failed to configure HTTP proxy on device: {str(api_error)}",
                 debug_info=debug_info
             )
 
