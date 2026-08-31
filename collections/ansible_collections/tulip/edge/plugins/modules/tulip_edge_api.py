@@ -649,7 +649,7 @@ class TulipEdgeAPI:
     
     def gateway_factory_reset(self, token, parameters):
         """Perform factory reset"""
-        return self._authenticated_request('/gateway/factory_Reset', token, data=parameters)
+        return self._authenticated_request('/gateway/factoryReset', token, data=parameters)
 
     def gateway_serial_number(self, token, parameters):
         """Perform factory reset"""
@@ -2120,8 +2120,8 @@ def main():
                 'restore_mqtt_bridge', 'backup_mqtt_bridge', 
                 'backup_lightkit', 'restore_lightkit',
                 'backup_ntp', 'restore_ntp',
-                'backup_http_proxy', 'restore_http_proxy',
-                'backup_network_certificates', 'restore_network_certificates',
+                'backup_http_proxy', 'restore_http_proxy', 'clear_http_proxy',
+                'backup_network_certificates', 'restore_network_certificates', 'clear_network_certificates',
                 'backup_https', 'restore_https',
                 'configure_network', 'backup_network_state', 'restore_network_config', 'confirm_network_config',
                 'restore_root_certs', 'backup_root_certs', 'toggle_http_proxy',
